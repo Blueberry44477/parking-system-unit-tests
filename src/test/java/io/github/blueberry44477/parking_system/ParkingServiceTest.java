@@ -77,4 +77,39 @@ public class ParkingServiceTest {
 
         assertEquals("Недопустиме значення: Тривалість", exception.getMessage());
     }
+
+    @ParameterizedTest
+    @CsvSource({
+        "0, 4000",
+        "2, 4000",
+        "5, 4000", // Night entry. But test FAILURE because of >5 in code.
+
+        "6, 5000",
+        "15, 5000",
+        "21, 5000",
+
+        "22, 4000", // Night entry
+        "23, 4000"
+    })
+    void process_shouldCalculateCorrectly_forVariousEntryHours(int entryHour, long expectedTotalPrice) {
+        when(parkingAvailability.isAvailable()).thenReturn(true);
+        ParkingService.Request request = new ParkingService.Request(30, entryHour, "Центральна", false, false);
+
+        ParkingService.Result result = parkingService.process(request);
+
+        assertEquals("Розраховано", result.status());
+        assertEquals(expectedTotalPrice, result.total());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {-1, 24})
+    void process_shouldThrowException_forInvalidEntryHours(int entryHour) {
+        ParkingService.Request request = new ParkingService.Request(30, entryHour, "Центральна", false, false);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            parkingService.process(request);
+        });
+
+        assertEquals("Недопустиме значення: Година в’їзду", exception.getMessage());
+    }
 }
