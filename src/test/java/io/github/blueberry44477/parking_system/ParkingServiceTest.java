@@ -2,6 +2,9 @@ package io.github.blueberry44477.parking_system;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.DisplayName;
@@ -10,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -20,7 +24,8 @@ import io.github.blueberry44477.parking_system.ParkingService.SubscriptionRegist
 
 @ExtendWith(MockitoExtension.class)
 public class ParkingServiceTest {
-    @Mock
+    // Mock can also be used as a Stub.
+    @Mock 
     private ParkingAvailability parkingAvailability;
 
     @Mock
@@ -113,6 +118,7 @@ public class ParkingServiceTest {
         assertEquals("Недопустиме значення: Година в’їзду", exception.getMessage());
     }
 
+    // Decision Table
     @ParameterizedTest 
     @CsvSource({
         "false, false, 5000", // Without discount
@@ -134,5 +140,37 @@ public class ParkingServiceTest {
 
         assertEquals("Розраховано", result.status());
         assertEquals(expectedTotalPrice, result.total());
+    }
+
+    // Interaction-Based Test: Repository
+    @Test
+    void process_shouldSaveReceiptWithCorrectArguments() {
+        when(parkingAvailability.isAvailable()).thenReturn(true);
+        ParkingService.Request request = new ParkingService.Request(15, 12, "Центральна", false, false);
+
+        parkingService.process(request);
+
+        ArgumentCaptor<ParkingService.Request> requestCaptor = ArgumentCaptor.forClass(ParkingService.Request.class);
+        ArgumentCaptor<ParkingService.Result> resultCaptor = ArgumentCaptor.forClass(ParkingService.Result.class);
+
+        // Ensure save() is called 1 time only.
+        verify(parkingRepository, times(1)).save(requestCaptor.capture(), resultCaptor.capture());
+        
+        assertEquals(15, requestCaptor.getValue().minutes());
+        assertEquals(0, resultCaptor.getValue().total());
+        assertEquals("Розраховано", resultCaptor.getValue().status());
+    }
+
+    // Interaction-Based Test: Відхилення операції (Stub) та відсутність виклику (Repository)
+    @Test
+    void process_shouldRejectWhenParkingIsUnavailable() {
+        when(parkingAvailability.isAvailable()).thenReturn(false);
+        ParkingService.Request request = new ParkingService.Request(60, 12, "Центральна", false, false);
+
+        ParkingService.Result result = parkingService.process(request);
+
+        assertEquals("Оформлення недоступне", result.status());
+        assertEquals(0, result.total());
+        verifyNoInteractions(parkingRepository);
     }
 }
