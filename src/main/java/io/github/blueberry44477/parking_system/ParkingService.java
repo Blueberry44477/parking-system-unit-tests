@@ -28,6 +28,7 @@ public final class ParkingService {
         if (request == null) {
             throw new IllegalArgumentException("Заявку не задано");
         }
+        // ERROR: must be 1440 instead of 1439
         checkRange(request.minutes(), 1, 1_439, "Тривалість");
         checkRange(request.entryHour(), 0, 23, "Година в’їзду");
         if (!"Центральна".equals(request.zone()) && !"Зовнішня".equals(request.zone())) {
@@ -47,7 +48,7 @@ public final class ParkingService {
         boolean subscriber = request.subscriptionClaimed() && subscriptions.isValid();
         int discount;
         if (request.electric() && subscriber) {
-            discount = 35;
+            discount = 35; // ERROR. Must be 40 (EV & Subscriber)
         } else if (subscriber) {
             discount = 30;
         } else if (request.electric()) {
@@ -56,6 +57,8 @@ public final class ParkingService {
             discount = 0;
         }
         long total = base - base * discount / 100;
+
+        // ERROR. Must be <= 5.
         if (request.entryHour() >= 22 || request.entryHour() < 5) {
             total = Math.max(0, total - 1_000);
         }
