@@ -91,7 +91,7 @@ public class ParkingServiceTest {
         "22, 4000", // Night entry
         "23, 4000"
     })
-    void process_shouldCalculateCorrectly_forVariousEntryHours(int entryHour, long expectedTotalPrice) {
+    void process_shouldCalculateTotalPriceCorrectly_forVariousEntryHours(int entryHour, long expectedTotalPrice) {
         when(parkingAvailability.isAvailable()).thenReturn(true);
         ParkingService.Request request = new ParkingService.Request(30, entryHour, "Центральна", false, false);
 
@@ -111,5 +111,28 @@ public class ParkingServiceTest {
         });
 
         assertEquals("Недопустиме значення: Година в’їзду", exception.getMessage());
+    }
+
+    @ParameterizedTest 
+    @CsvSource({
+        "false, false, 5000", // Without discount
+        "true, false, 4500",
+        "false, true, 3500",
+        "true, true, 3000" // ERROR. must be 3000 but 3250 because of 35% discount instead of 40% in the code.
+    })
+    void process_shouldCalculateDiscountCorrectly_forVariousParameters(
+            boolean electric, boolean subscriber, long expectedTotalPrice) {
+        when(parkingAvailability.isAvailable()).thenReturn(true);
+        
+        if (subscriber) {
+            when(subscriptionRegistry.isValid()).thenReturn(true);
+        }
+
+        ParkingService.Request request = new ParkingService.Request(30, 15, "Центральна", electric, subscriber);
+
+        ParkingService.Result result = parkingService.process(request);
+
+        assertEquals("Розраховано", result.status());
+        assertEquals(expectedTotalPrice, result.total());
     }
 }
