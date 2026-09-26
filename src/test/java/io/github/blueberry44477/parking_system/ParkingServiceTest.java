@@ -37,13 +37,48 @@ public class ParkingServiceTest {
     @InjectMocks
     private ParkingService parkingService;
 
-    // 1. State-Based Test: Позитивний сценарій без знижок
-    @Test 
+    @Test
+    void process_ShouldThrowException_WhenRequestIsNull() {
+        ParkingService.Request request = null;
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            parkingService.process(request);
+        });
+
+        assertEquals("Заявку не задано", exception.getMessage());
+    }
+
+    @Test
+    void process_ShouldThrowException_WhenZoneIsUnknown() {
+        ParkingService.Request request = new ParkingService.Request(75, 12, "Unknown Zone", false, false);
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            parkingService.process(request);
+        });
+        assertEquals("Невідома зона", exception.getMessage());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "Центральна, 5000",
+        "Зовнішня, 3000"
+    })
     @DisplayName("Calculates standard parking rate when no discounts apply")
-    void process_shouldCalculateStandardParkingWithoutDiscounts() {
+    void process_ShouldCalculateParkingWithoutDiscounts(String zone, long expectedTotalPrice) {
         when(parkingAvailability.isAvailable()).thenReturn(true);
-        ParkingService.Request request = new ParkingService.Request(75, 12, "Центральна", false, false);
+        ParkingService.Request request = new ParkingService.Request(75, 12, zone, false, false);
         
+        ParkingService.Result result = parkingService.process(request);
+        
+        assertEquals("Розраховано", result.status());
+        assertEquals(1, result.billableHours());
+        assertEquals(expectedTotalPrice, result.total());
+    }
+
+    @Test
+    void process_ShouldCalculateWithNoDiscount_ForSubscriberWithInvalidSubscription() {
+        when(parkingAvailability.isAvailable()).thenReturn(true);
+        ParkingService.Request request = new ParkingService.Request(75, 12, "Центральна", false, true);
+        when(subscriptionRegistry.isValid()).thenReturn(false);
         ParkingService.Result result = parkingService.process(request);
         
         assertEquals("Розраховано", result.status());
