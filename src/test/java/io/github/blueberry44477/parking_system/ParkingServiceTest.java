@@ -2,6 +2,7 @@ package io.github.blueberry44477.parking_system;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -72,6 +73,7 @@ public class ParkingServiceTest {
         assertEquals("Розраховано", result.status());
         assertEquals(1, result.billableHours());
         assertEquals(expectedTotalPrice, result.total());
+        verify(parkingRepository, times(1)).save(request, result);
     }
 
     @Test
@@ -208,4 +210,18 @@ public class ParkingServiceTest {
         assertEquals(0, result.total());
         verifyNoInteractions(parkingRepository);
     }
+
+    // boolean subscriber = request.subscriptionClaimed() && subscriptions.isValid();
+    @Test
+    void process_shouldNotApplyDiscount_whenSubscriptionClaimedIsFalseEvenIfRegistryReturnsTrue() {
+        when(parkingAvailability.isAvailable()).thenReturn(true);
+        lenient().when(subscriptionRegistry.isValid()).thenReturn(true);
+
+        var request = new ParkingService.Request(75, 12, "Центральна", false, false);
+        ParkingService.Result result = parkingService.process(request);
+
+        org.junit.jupiter.api.Assertions.assertEquals(5_000L, result.total());
+    }
+
+    // Рядок 40 дає еквівалентний результат.
 }
